@@ -85,6 +85,13 @@ For a deterministic command-line demonstration that needs no recordings:
 
 On Windows, run `.venv\Scripts\python.exe -m pytest`.
 
+## Automatic Publishing
+
+The repository is configured for agent-assisted publishing. The agent runs
+tests, reviews the diff, commits completed changes, and pushes to `origin/main`.
+SSH authentication must be available on the machine, and the private GitHub
+repository must exist before the first push.
+
 ## Output
 
 The export ZIP contains:

@@ -13,6 +13,18 @@ Run `.venv/bin/python -m pytest` on Unix or
 audio, SVG, export, or packaging code. The deterministic two-voice demo is the
 fixture when private recordings are unavailable.
 
+## Publishing
+
+The project owner requested automatic publishing. After completing a code
+change, run the relevant tests, inspect the staged diff, create a concise Git
+commit, and push it to `origin/main`. Use the repository's configured Git
+identity. Keep generated outputs, `.venv`, recordings, credentials, and other
+machine-local files out of commits; `.gitignore` is the first check. If the
+remote is unavailable, keep the commit locally and report the push blocker.
+
+The remote is `git@github.com:prasad42/cymatic-zine.git`. Push only after tests
+pass and the commit contains the intended files.
+
 ## Product Invariants
 
 - The final master has seven vertical 7 x 7 inch panels and measures 7 x 49 inches.
