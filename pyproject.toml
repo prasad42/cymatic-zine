@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cymatic-zine"
+version = "0.1.0"
+description = "A fabrication-first cymatic voice visualizer for a seven-panel accordion zine"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "contourpy>=1.3",
+  "numpy>=2.0",
+  "streamlit>=1.42",
+  "imageio-ffmpeg>=0.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3"]
+
+[project.scripts]
+cymatic-zine = "cymatic_zine.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cymatic_zine"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
