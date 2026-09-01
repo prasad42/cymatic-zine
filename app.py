@@ -88,6 +88,10 @@ with st.sidebar:
     hatch_threshold = st.slider("Wood hatch threshold", 0.1, 0.8, 0.42, 0.02)
     background = st.color_picker("Paper ground", "#f4efe4")
     st.subheader("Panel colors")
+    gradient_contours = st.checkbox(
+        "Gradient-color contour lines", True,
+        help="Blend each panel color into the next across the complete master strip.",
+    )
     colors = tuple(
         st.color_picker(f"Panel {index + 1}", color, key=f"color-{index}")
         for index, color in enumerate(DEFAULT_COLORS)
@@ -161,6 +165,7 @@ if analyses:
         base_contours=base_contours,
         maximum_contours=maximum_contours,
         hatch_threshold=hatch_threshold,
+        gradient_contours=gradient_contours,
     )
     with st.spinner("Analyzing voices and solving independent plate fields..."):
         x, y, field = build_field(analyses, model_settings)

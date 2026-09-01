@@ -110,10 +110,18 @@ def test_svg_has_exact_physical_dimensions_and_progressive_gradient():
     assert 'width="7in" height="14in"' in svg
     assert "#3155a6" in svg
     assert "#2378ad" in svg
-    assert "url(#hope)" not in svg
+    assert "url(#hope)" in svg
+    assert 'gradientUnits="userSpaceOnUse"' in svg
     assert svg.count("<path") > 5
     assert " C " in svg
     ElementTree.fromstring(svg)
+
+
+def test_svg_can_use_solid_panel_contour_colors():
+    x, y, field = build_field(voices(), ModelSettings(resolution=60))
+    svg = render_svg(x, y, field, RenderSettings(gradient_contours=False))
+    assert "url(#hope)" not in svg
+    assert 'stroke="#3155a6"' in svg
 
 
 def test_export_contains_master_panels_and_manifest():

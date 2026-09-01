@@ -29,6 +29,7 @@ class RenderSettings:
     maximum_contours: int = 13
     accelerating_density: bool = True
     hatch_threshold: float = 0.42
+    gradient_contours: bool = True
 
 
 def _density_count(panel: int, panel_count: int, settings: RenderSettings) -> int:
@@ -105,6 +106,14 @@ def _wood_hatches(
                 x2 = (right - 1) / (field.shape[1] - 1) * 700
                 paths.append((panel, f'<path d="M {x1:.2f},{y:.2f} L {x2:.2f},{y:.2f}"/>'))
     return paths
+
+
+def _gradient_stops(colors: tuple[str, ...], panel_count: int) -> str:
+    stops = []
+    for panel, color in enumerate(colors[:panel_count]):
+        offset = (panel + 0.5) / panel_count * 100.0
+        stops.append(f'<stop offset="{offset:.2f}%" stop-color="{escape(color)}"/>')
+    return "".join(stops)
 
 
 def _zero_crossings(values: np.ndarray) -> np.ndarray:
@@ -190,17 +199,34 @@ def render_svg(
     stroke_width = settings.line_width_in * 100
     common = 'fill="none" stroke-linecap="round" stroke-linejoin="round"'
     if medium == "paper":
-        # Use one solid color per panel.  The palette therefore progresses
-        # across the complete strip instead of interpolating within a panel.
-        groups = []
-        for panel in range(crop[0], crop[1]):
-            paths = "".join(path for path_panel, path in contour_paths if path_panel == panel)
-            color = escape(settings.colors[panel])
-            groups.append(
-                f'<g {common} stroke="{color}" opacity="0.24" stroke-width="{stroke_width * 2.8:.2f}">{paths}</g>'
-                f'<g {common} stroke="{color}" stroke-width="{stroke_width:.2f}">{paths}</g>'
+        paths = "".join(path for _, path in contour_paths)
+        if settings.gradient_contours:
+            gradient = (
+                f'<linearGradient id="hope" gradientUnits="userSpaceOnUse" '
+                f'x1="0" y1="{-crop[0] * 700}" x2="0" y2="{(panel_count - crop[0]) * 700}">'
+                f'{_gradient_stops(settings.colors, panel_count)}</linearGradient>'
             )
-        artwork = f'<rect width="100%" height="100%" fill="{escape(settings.background)}"/>' + "".join(groups)
+            stroke = 'url(#hope)'
+            defs = f'<defs>{gradient}</defs>'
+        else:
+            defs = ""
+            stroke = None
+        if stroke:
+            artwork = (
+                f'<rect width="100%" height="100%" fill="{escape(settings.background)}"/>{defs}'
+                f'<g {common} stroke="{stroke}" opacity="0.24" stroke-width="{stroke_width * 2.8:.2f}">{paths}</g>'
+                f'<g {common} stroke="{stroke}" stroke-width="{stroke_width:.2f}">{paths}</g>'
+            )
+        else:
+            groups = []
+            for panel in range(crop[0], crop[1]):
+                panel_paths = "".join(path for path_panel, path in contour_paths if path_panel == panel)
+                color = escape(settings.colors[panel])
+                groups.append(
+                    f'<g {common} stroke="{color}" opacity="0.24" stroke-width="{stroke_width * 2.8:.2f}">{panel_paths}</g>'
+                    f'<g {common} stroke="{color}" stroke-width="{stroke_width:.2f}">{panel_paths}</g>'
+                )
+            artwork = f'<rect width="100%" height="100%" fill="{escape(settings.background)}"/>' + "".join(groups)
     elif medium == "wood":
         hatches = _wood_hatches(field, panel_count, settings, crop)
         contour_markup = "".join(path for _, path in contour_paths)
