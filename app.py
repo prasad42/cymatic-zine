@@ -33,7 +33,7 @@ def show_svg(svg: str, panel_count: int) -> None:
 
 st.set_page_config(page_title="Cymatic Zine", layout="wide")
 st.title("Cymatic Zine")
-st.caption("Seven equal voices accumulating from blue to yellow across a 7 x 49 inch physical field.")
+st.caption("Seven independent voice patterns arranged from blue to yellow across a 7 x 49 inch physical field.")
 
 if "reflection_symmetry" not in ModelSettings.__dataclass_fields__:
     st.error("The server has an older model loaded. Stop Streamlit and start it again.")
@@ -67,6 +67,10 @@ with st.sidebar:
     )
     damping = st.slider("Damping", 0.005, 0.08, 0.025, 0.005)
     coupling = st.slider("Fold coupling", 0.0, 0.3, 0.12, 0.01)
+    voice_interaction = st.slider(
+        "Voice interference merge", 0.0, 0.8, 0.35, 0.05,
+        help="Controls nonlinear interaction between simultaneous voices in later panels.",
+    )
     reflection_symmetry = st.checkbox("Enforce bilateral and reflection symmetry", True)
     if reflection_symmetry:
         excitation_x = excitation_y = 0.5
@@ -83,7 +87,7 @@ with st.sidebar:
     maximum_contours = st.slider("Final panel contours", 7, 21, 13, 2)
     hatch_threshold = st.slider("Wood hatch threshold", 0.1, 0.8, 0.42, 0.02)
     background = st.color_picker("Paper ground", "#f4efe4")
-    st.subheader("Panel gradient")
+    st.subheader("Panel colors")
     colors = tuple(
         st.color_picker(f"Panel {index + 1}", color, key=f"color-{index}")
         for index, color in enumerate(DEFAULT_COLORS)
@@ -141,6 +145,7 @@ if analyses:
         maximum_mode=maximum_mode,
         damping=damping,
         coupling=coupling,
+        voice_interaction=voice_interaction,
         excitation_x=excitation_x,
         excitation_y=excitation_y,
         signature_modes=signature_modes,
@@ -157,7 +162,7 @@ if analyses:
         maximum_contours=maximum_contours,
         hatch_threshold=hatch_threshold,
     )
-    with st.spinner("Analyzing voices and solving cumulative plate fields..."):
+    with st.spinner("Analyzing voices and solving independent plate fields..."):
         x, y, field = build_field(analyses, model_settings)
         paper_svg = render_svg(x, y, field, render_settings, medium="paper")
         wood_svg = render_svg(x, y, field, render_settings, medium="wood")

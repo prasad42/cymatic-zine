@@ -54,36 +54,28 @@ def _split_by_visibility(
     panel_count: int,
     settings: RenderSettings,
     crop: tuple[int, int],
-) -> list[np.ndarray]:
+) -> list[tuple[int, np.ndarray]]:
     output: list[np.ndarray] = []
     current: list[np.ndarray] = []
+    current_panel: int | None = None
     for point in points:
         panel = int(np.clip(math.floor(point[1]), 0, panel_count - 1))
         visible = crop[0] <= panel < crop[1] and level_rank < _density_count(
             panel, panel_count, settings
         )
-        if visible:
+        if visible and (current_panel is None or panel == current_panel):
             current.append(point)
-        elif len(current) >= 2:
-            output.append(np.asarray(current))
-            current = []
+            current_panel = panel
         else:
+            if len(current) >= 2 and current_panel is not None:
+                output.append((current_panel, np.asarray(current)))
             current = []
-    if len(current) >= 2:
-        output.append(np.asarray(current))
+            current_panel = panel if visible else None
+            if visible:
+                current.append(point)
+    if len(current) >= 2 and current_panel is not None:
+        output.append((current_panel, np.asarray(current)))
     return output
-
-
-def _gradient_stops(colors: tuple[str, ...], panel_count: int, crop: tuple[int, int]) -> str:
-    relevant = colors[:panel_count]
-    if len(relevant) == 1:
-        return f'<stop offset="0%" stop-color="{escape(relevant[0])}"/><stop offset="100%" stop-color="{escape(relevant[0])}"/>'
-    stops = []
-    crop_span = crop[1] - crop[0]
-    for index in range(crop[0], crop[1]):
-        local = ((index + 0.5) - crop[0]) / crop_span
-        stops.append(f'<stop offset="{local * 100:.2f}%" stop-color="{escape(relevant[index])}"/>')
-    return "".join(stops)
 
 
 def _wood_hatches(
@@ -91,9 +83,9 @@ def _wood_hatches(
     panel_count: int,
     settings: RenderSettings,
     crop: tuple[int, int],
-) -> list[str]:
+) -> list[tuple[int, str]]:
     panel_height = field.shape[0] / panel_count
-    paths: list[str] = []
+    paths: list[tuple[int, str]] = []
     for panel in range(crop[0], crop[1]):
         # Higher panels are sparse; later panels receive progressively tighter hatching.
         spacing_in = max(settings.minimum_gap_in, 0.18 - 0.12 * panel / max(panel_count - 1, 1))
@@ -111,7 +103,7 @@ def _wood_hatches(
                     continue
                 x1 = left / (field.shape[1] - 1) * 700
                 x2 = (right - 1) / (field.shape[1] - 1) * 700
-                paths.append(f'<path d="M {x1:.2f},{y:.2f} L {x2:.2f},{y:.2f}"/>')
+                paths.append((panel, f'<path d="M {x1:.2f},{y:.2f} L {x2:.2f},{y:.2f}"/>'))
     return paths
 
 
@@ -131,10 +123,10 @@ def _fold_connectors(
     field: np.ndarray,
     panel_count: int,
     crop: tuple[int, int],
-) -> list[str]:
+) -> list[tuple[int, str]]:
     """Bridge nodal contours through folds where local plate fields meet."""
     panel_height = field.shape[0] / panel_count
-    connectors: list[str] = []
+    connectors: list[tuple[int, str]] = []
     for panel in range(max(1, crop[0]), min(panel_count, crop[1])):
         seam = round(panel * panel_height)
         radius = max(2, round(panel_height * 0.018))
@@ -153,10 +145,10 @@ def _fold_connectors(
             local_seam = (seam / panel_height - crop[0]) * 700
             reach = max(8.0, panel_height * 0.025)
             connectors.append(
-                f'<path d="M {start_x:.2f},{local_seam - reach:.2f} '
+                (panel - 1, f'<path d="M {start_x:.2f},{local_seam - reach:.2f} '
                 f'C {start_x:.2f},{local_seam - 2.0:.2f} '
                 f'{end_x:.2f},{local_seam + 2.0:.2f} '
-                f'{end_x:.2f},{local_seam + reach:.2f}"/>'
+                f'{end_x:.2f},{local_seam + reach:.2f}"/>')
             )
     return connectors
 
@@ -181,15 +173,16 @@ def render_svg(
     ranked = sorted(range(len(levels)), key=lambda index: abs(levels[index]))
     rank_by_index = {level_index: rank for rank, level_index in enumerate(ranked)}
     generator = contourpy.contour_generator(x=x, y=y, z=field, name="serial")
-    contour_paths: list[str] = []
+    contour_paths: list[tuple[int, str]] = []
     for level_index, level in enumerate(levels):
         for line in generator.lines(float(level)):
             for section in _split_by_visibility(
                 line, rank_by_index[level_index], panel_count, settings, crop
             ):
-                path_data = _path(section, crop[0])
+                panel, section_points = section
+                path_data = _path(section_points, crop[0])
                 if path_data:
-                    contour_paths.append(f'<path d="{path_data}"/>')
+                    contour_paths.append((panel, f'<path d="{path_data}"/>'))
     contour_paths.extend(_fold_connectors(field, panel_count, crop))
 
     width = 700
@@ -197,22 +190,25 @@ def render_svg(
     stroke_width = settings.line_width_in * 100
     common = 'fill="none" stroke-linecap="round" stroke-linejoin="round"'
     if medium == "paper":
-        stops = _gradient_stops(settings.colors, panel_count, crop)
-        artwork = (
-            f'<rect width="100%" height="100%" fill="{escape(settings.background)}"/>'
-            f'<defs><linearGradient id="hope" x1="0" y1="0" x2="0" y2="1">{stops}</linearGradient></defs>'
-            f'<g {common} stroke="url(#hope)" opacity="0.24" stroke-width="{stroke_width * 2.8:.2f}">'
-            + "".join(contour_paths)
-            + f'</g><g {common} stroke="url(#hope)" stroke-width="{stroke_width:.2f}">'
-            + "".join(contour_paths)
-            + "</g>"
-        )
+        # Use one solid color per panel.  The palette therefore progresses
+        # across the complete strip instead of interpolating within a panel.
+        groups = []
+        for panel in range(crop[0], crop[1]):
+            paths = "".join(path for path_panel, path in contour_paths if path_panel == panel)
+            color = escape(settings.colors[panel])
+            groups.append(
+                f'<g {common} stroke="{color}" opacity="0.24" stroke-width="{stroke_width * 2.8:.2f}">{paths}</g>'
+                f'<g {common} stroke="{color}" stroke-width="{stroke_width:.2f}">{paths}</g>'
+            )
+        artwork = f'<rect width="100%" height="100%" fill="{escape(settings.background)}"/>' + "".join(groups)
     elif medium == "wood":
         hatches = _wood_hatches(field, panel_count, settings, crop)
+        contour_markup = "".join(path for _, path in contour_paths)
+        hatch_markup = "".join(path for _, path in hatches)
         artwork = (
-            f'<g {common} stroke="#000" stroke-width="{stroke_width:.2f}">' + "".join(contour_paths) + "</g>"
+            f'<g {common} stroke="#000" stroke-width="{stroke_width:.2f}">' + contour_markup + "</g>"
             f'<g {common} stroke="#000" stroke-width="{stroke_width * 0.75:.2f}" opacity="0.72">'
-            + "".join(hatches)
+            + hatch_markup
             + "</g>"
         )
     else:
@@ -221,8 +217,8 @@ def render_svg(
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
         f'<svg xmlns="http://www.w3.org/2000/svg" width="7in" height="{7 * (crop[1] - crop[0])}in" '
-        f'viewBox="0 0 {width} {height}" role="img" aria-label="Cumulative cymatic voice field">'
-        f'<title>Cumulative cymatic voice field, panels {crop[0] + 1} through {crop[1]}</title>'
+        f'viewBox="0 0 {width} {height}" role="img" aria-label="Independent cymatic voice panels">'
+        f'<title>Independent cymatic voice panels, panels {crop[0] + 1} through {crop[1]}</title>'
         + artwork
         + "</svg>"
     )

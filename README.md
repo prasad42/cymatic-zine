@@ -1,9 +1,11 @@
 # Cymatic Zine
 
 A private production tool for translating seven recorded statements about hope
-into a static, vertically accumulating cymatic composition. Each 7 x 7 inch
-panel adds one equal-loudness voice. The complete seven-panel work is 7 x 49
-inches and can be exported for high-resolution printing or laser engraving.
+into a static, vertically arranged cymatic composition. Each 7 x 7 inch panel
+contains the simultaneous merge of voices 1 through n, with nonlinear
+interference creating a new pattern at each step. The complete seven-panel work
+is 7 x 49 inches and can be exported for high-resolution printing or laser
+engraving.
 
 The model is cymatics-inspired rather than a prediction of one physical plate.
 It uses documented square-plate modes, a shared central excitation point, one

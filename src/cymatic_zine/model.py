@@ -15,6 +15,7 @@ class ModelSettings:
     maximum_mode: int = 12
     damping: float = 0.025
     coupling: float = 0.12
+    voice_interaction: float = 0.35
     excitation_x: float = 0.5
     excitation_y: float = 0.5
     minimum_frequency: float = 80.0
@@ -98,11 +99,11 @@ def _panel_field(
         if settings.reflection_symmetry
         else _mode_catalog(settings.minimum_mode, settings.maximum_mode)
     )
-    field = np.zeros((len(y), len(x)), dtype=np.float64)
+    voice_fields: list[np.ndarray] = []
 
     for voice in voices:
         voice_modes = _voice_modes(voice, settings, modes)
-        voice_field = np.zeros_like(field)
+        voice_field = np.zeros((len(y), len(x)), dtype=np.float64)
         for mode, weight in voice_modes:
             m, n = mode
             excitation = math.sin(m * math.pi * settings.excitation_x) * math.sin(
@@ -116,12 +117,22 @@ def _panel_field(
                 swapped = np.sin(n * math.pi * x)[None, :] * np.sin(m * math.pi * y)[:, None]
                 plate_mode = (first + swapped) / math.sqrt(2.0)
             voice_field += weight * excitation * attenuation * plate_mode
-        field += voice_field
+        voice_fields.append(voice_field)
 
-    # Equal-loudness inputs contribute equally; sqrt scaling prevents later panels
-    # from gaining amplitude merely because more voices are present.
-    if voices:
-        field /= math.sqrt(len(voices))
+    # Voices are present simultaneously, but their merge includes a bounded
+    # pairwise interference term. This creates new nodal structure rather than
+    # making panel n look like panel n-1 with another pattern laid on top.
+    field = np.sum(voice_fields, axis=0) / math.sqrt(len(voice_fields))
+    if len(voice_fields) > 1 and settings.voice_interaction > 0:
+        interaction = np.zeros_like(field)
+        pair_count = 0
+        for index, first in enumerate(voice_fields):
+            for second in voice_fields[index + 1 :]:
+                interaction += first * second
+                pair_count += 1
+        interaction /= pair_count
+        scale = max(float(np.quantile(np.abs(field), 0.98)), 1e-12)
+        field += settings.voice_interaction * interaction / scale
     if settings.reflection_symmetry:
         field = (field + np.fliplr(field) + np.flipud(field) + np.flip(field)) / 4.0
     return field
@@ -152,6 +163,8 @@ def build_field(
     panel_height = settings.resolution
     x = np.linspace(0.0, 1.0, settings.resolution)
     local_y = (np.arange(panel_height) + 0.5) / panel_height
+    # Panel n contains voices 1..n playing together. The nonlinear merge in
+    # _panel_field makes each cumulative panel a new field, not a visual stack.
     panels = [_panel_field(voices[: index + 1], settings, x, local_y) for index in range(len(voices))]
     field = _smooth_seams(np.vstack(panels), panel_height, settings.coupling)
 

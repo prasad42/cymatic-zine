@@ -89,12 +89,28 @@ def test_cumulative_field_is_deterministic_and_panel_sized():
         np.testing.assert_allclose(panel, np.flipud(panel), atol=1e-12)
 
 
+def test_later_panels_merge_all_voices_with_interference():
+    analyzed = voices()
+    settings = ModelSettings(resolution=60, coupling=0.0)
+    _, _, field = build_field(analyzed, settings)
+    _, _, first_only = build_field([analyzed[0]], settings)
+    _, _, second_only = build_field([analyzed[1]], settings)
+    _, _, linear = build_field(
+        analyzed,
+        ModelSettings(resolution=60, coupling=0.0, voice_interaction=0.0),
+    )
+    np.testing.assert_allclose(field[:60], first_only)
+    assert not np.allclose(field[60:], second_only)
+    assert not np.allclose(field[60:], linear[60:])
+
+
 def test_svg_has_exact_physical_dimensions_and_progressive_gradient():
     x, y, field = build_field(voices(), ModelSettings(resolution=60))
     svg = render_svg(x, y, field, RenderSettings())
     assert 'width="7in" height="14in"' in svg
     assert "#3155a6" in svg
     assert "#2378ad" in svg
+    assert "url(#hope)" not in svg
     assert svg.count("<path") > 5
     assert " C " in svg
     ElementTree.fromstring(svg)

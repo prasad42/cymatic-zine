@@ -44,7 +44,7 @@ def build_export_zip(
     manifest = {
         "schema_version": 1,
         "dimensions_inches": {"width": 7, "panel_height": 7, "total_height": 7 * panel_count},
-        "progression": "panel n combines voices 1 through n at equal pre-coupling loudness",
+        "progression": "panel n merges voices 1 through n playing simultaneously at equal pre-coupling loudness",
         "frequency_mapping": "logarithmic mapping from measured spectral peaks to square-plate modes",
         "model": asdict(model_settings),
         "render": asdict(render_settings),
