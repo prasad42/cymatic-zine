@@ -61,6 +61,21 @@ python -m pip install -e ".[dev]"
 
 ## Run
 
+Use the platform launcher from the repository folder. It creates `.venv` and
+installs the dependencies automatically the first time:
+
+Ubuntu:
+
+```bash
+./launch.sh
+```
+
+If Ubuntu blocks execution, run `chmod +x launch.sh` once. Windows users can
+double-click `launch.bat` or run it from Command Prompt or PowerShell.
+
+The launchers start Streamlit and open the app in the browser. To run it
+directly instead:
+
 ```bash
 .venv/bin/python -m streamlit run app.py
 ```
