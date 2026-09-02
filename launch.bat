@@ -24,14 +24,20 @@ if errorlevel 1 (
 
 set "WSL_LOCATION=%SCRIPT_DIR:~16%"
 if /i "%SCRIPT_DIR:~0,7%"=="\\wsl$\" set "WSL_LOCATION=%SCRIPT_DIR:~7%"
-for /f "tokens=1,* delims=\" %%A in ("%WSL_LOCATION%") do (
+set "WSL_LOCATION=%WSL_LOCATION:\=/%"
+for /f "tokens=1,* delims=/" %%A in ("%WSL_LOCATION%") do (
     set "WSL_DISTRO=%%A"
     set "WSL_PATH=%%B"
 )
-set "WSL_PATH=/%WSL_PATH:\=/%"
+set "WSL_PATH=/%WSL_PATH%"
 
 wsl.exe -d "%WSL_DISTRO%" --cd "%WSL_PATH%" python3 launch.py %*
 set "EXIT_CODE=%ERRORLEVEL%"
+if not "%EXIT_CODE%"=="0" (
+    echo The WSL distribution "%WSL_DISTRO%" was not accepted. Trying the default WSL distribution...
+    wsl.exe --cd "%WSL_PATH%" python3 launch.py %*
+    set "EXIT_CODE=%ERRORLEVEL%"
+)
 goto finish
 
 :native
