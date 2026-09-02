@@ -73,8 +73,9 @@ Ubuntu:
 If Ubuntu blocks execution, run `chmod +x launch.sh` once. Windows users can
 double-click `launch.bat` or run it from Command Prompt or PowerShell.
 When the repository is stored under `\\wsl.localhost\Ubuntu\...`, the Windows
-launcher automatically forwards the command to Ubuntu through WSL. Otherwise,
-Windows requires Python 3.11 or newer to be installed natively.
+launcher automatically forwards the command to Ubuntu through WSL and opens the
+browser in Windows. Otherwise, Windows requires Python 3.11 or newer to be
+installed natively.
 
 The launchers start Streamlit and open the app in the browser. To run it
 directly instead:
